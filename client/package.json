@@ -1,0 +1,19 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "description": "Local RPC Client that connects to Nym network",
+  "main": "index.js",
+  "author": "Daniel Luca (CleanUnicorn)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "typescript": "^4.9.4",
+    "ws": "^8.11.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node dist/index.js"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1"
+  }
+}
