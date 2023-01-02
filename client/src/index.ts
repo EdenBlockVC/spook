@@ -1,10 +1,18 @@
 import WebSocket from 'ws';
 
+import express from 'express';
+
 // Websocket connection to the Nym client
 var websocketConnection: any;
 
 // Local Nym client address
 var ourAddress: string;
+
+// RPC server
+var rpcServer: any;
+
+// Address to send messages to (provider address)
+var targetAddress: string;
 
 // Main function
 async function startNymWebsocketConnection() {
@@ -22,7 +30,7 @@ async function startNymWebsocketConnection() {
         return;
     }
 
-    websocketConnection.on('message', function (data, isBinary: boolean) { 
+    websocketConnection.on('message', function (data, isBinary: boolean) {
         handleResponse(data, isBinary);
     })
 
@@ -45,7 +53,7 @@ function connectWebsocket(url: string) {
             log(err);
         }
 
-        server.on('open', function open() { 
+        server.on('open', function open() {
             log('Connected');
             resolve(server);
         })
@@ -64,10 +72,10 @@ function handleResponse(response: any, isBinary: boolean) {
             log("Server responded with error: " + r.message);
         } else if (r.type == "selfAddress") {
             ourAddress = r.address;
-            log(`Our local client's address is: ${r.address}.`);
+            log(`Our local client's address is: ${ourAddress}.`);
         } else if (r.type == "received") {
-            // TODO: handle received message
-            log('Not implemented yet')
+            // Reply back to the RPC server
+            replyBack(r);
         }
     } catch (err) {
         log('Error handling response');
@@ -84,8 +92,53 @@ function sendSelfAddressRequest() {
     websocketConnection.send(JSON.stringify(selfAddressRequest));
 }
 
+async function startRPCServer() {
+    log('Starting RPC server');
+
+    rpcServer = express();
+    rpcServer.use(express.json());
+
+    rpcServer.post('/', (request, response) => {
+        makeRequest(request, response);
+    })
+
+    rpcServer.listen(8545);
+}
+
+var requestsToResolve: any;
+
+async function makeRequest(request, response) {
+    var requestId: number = Math.random();
+
+    const containerMessage = {
+        rpcRequest: request.body,
+        replyTo: ourAddress,
+        requestId: requestId,
+    }
+
+    const message = {
+        type: "send",
+        message: JSON.stringify(containerMessage),
+        recipient: targetAddress,
+        withReplySurb: false,
+    }
+
+    log(message);
+
+    // Save request to resolve when response is received
+    requestsToResolve[requestId] = response;
+
+    // Send message to Nym client
+    websocketConnection.send(JSON.stringify(message));
+}
+
+function replyBack(response: JSON) {
+    log('Replying back');
+    log(response);
+}
+
 // Log message
-function log(message: string) { 
+function log(message: any) {
     console.log(message);
 }
 
@@ -93,4 +146,4 @@ function log(message: string) {
 startNymWebsocketConnection();
 
 // Start port to wait for RPC requests
-// startRPCServer();
+startRPCServer();
