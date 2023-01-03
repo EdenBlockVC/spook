@@ -12,7 +12,7 @@ var ourAddress: string;
 var rpcServer: any;
 
 // Address to send messages to (provider address)
-var targetAddress: string;
+var targetAddress: string = process.env.TARGET_ADDRESS;
 
 // Main function
 async function startNymWebsocketConnection() {
@@ -31,7 +31,7 @@ async function startNymWebsocketConnection() {
     }
 
     websocketConnection.on('message', function (data, isBinary: boolean) {
-        handleResponse(data, isBinary);
+        handleResponse(JSON.parse(data.toString()), isBinary);
     })
 
     // Get the client's address
@@ -62,12 +62,12 @@ function connectWebsocket(url: string) {
 
 function handleResponse(response: any, isBinary: boolean) {
     log('======RESPONSE======');
-    log(response.toString());
+    log(response);
     log(isBinary ? 'binary' : 'text');
     log('======RESPONSE======');
 
     try {
-        let r = JSON.parse(response.toString());
+        let r = response;
         if (r.type == "error") {
             log("Server responded with error: " + r.message);
         } else if (r.type == "selfAddress") {
@@ -80,7 +80,7 @@ function handleResponse(response: any, isBinary: boolean) {
     } catch (err) {
         log('Error handling response');
         log(err);
-        log(response.toString());
+        log(response);
     }
 }
 
@@ -105,10 +105,11 @@ async function startRPCServer() {
     rpcServer.listen(8545);
 }
 
-var requestsToResolve: any;
+var requestId: number = 0;
+var requestsToResolve: any = {};
 
 async function makeRequest(request, response) {
-    var requestId: number = Math.random();
+    requestId += 1;
 
     const containerMessage = {
         rpcRequest: request.body,
@@ -132,9 +133,16 @@ async function makeRequest(request, response) {
     websocketConnection.send(JSON.stringify(message));
 }
 
-function replyBack(response: JSON) {
+function replyBack(response: any) {
     log('Replying back');
     log(response);
+
+    var rpcResponseMessage = JSON.parse(response.message);
+    var rpcResponse = rpcResponseMessage.rpcResponse;
+    var rpcRequestId = rpcResponseMessage.requestId;
+
+    var initialRequest = requestsToResolve[rpcRequestId];
+    initialRequest.json(rpcResponse);
 }
 
 // Log message
