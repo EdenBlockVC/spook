@@ -1,5 +1,4 @@
 import WebSocket from 'ws';
-
 import express from 'express';
 
 // Websocket connection to the Nym client
@@ -11,18 +10,19 @@ var ourAddress: string;
 // RPC server
 var rpcServer: any;
 
-// Address to send messages to (provider address)
-var targetAddress: string = process.env.TARGET_ADDRESS;
+// Nym exit node address
+var targetAddress: string = process.env.EXIT_NODE_ADDRESS;
 
 // Main function
 async function startNymWebsocketConnection() {
-    var port = '3000';
-    var localClientUrl = "ws://127.0.0.1:" + port;
+    var localClientUrl = process.env.NYM_HOST_URL || 'ws://localhost:3000';
+
+    log(`Connectingg to ${localClientUrl}`);
 
     websocketConnection = await connectWebsocket(localClientUrl).then(function (c) {
         return c;
     }).catch(function (err) {
-        log("Websocket connection error. Is the client running on port `" + port + "`?");
+        log(`Websocket connection error. Is the Nym websocket client running at ${localClientUrl}?`);
     });
 
     if (websocketConnection == null) {
@@ -102,7 +102,7 @@ async function startRPCServer() {
         makeRequest(request, response);
     })
 
-    rpcServer.listen(8545);
+    rpcServer.listen(process.env.ETH_RPC_PORT || 8545);
 }
 
 var requestId: number = 0;

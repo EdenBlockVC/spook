@@ -5,19 +5,17 @@ import axios from 'axios';
 
 var ourAddress: string;
 var websocketConnection: any;
-// TODO: read this from process.env
-var ethereumRPCUrl: string = 'https://eth-mainnet.g.alchemy.com/v2/9A0skgonLxqrtMN51Bo2TlSGMLpTAPoB';
+var ethereumRPCUrl: string = process.env.ETH_RPC_URL || 'http://localhost:8545';
 
 async function main() {
-    var port = process.env.PORT || 3001;
-    var localClientUrl = process.env.LOCAL_CLIENT_URL || 'ws://localhost:' + port;
+    var localClientUrl = process.env.NYM_HOST_URL || 'ws://localhost:3001';
 
-    log(localClientUrl);
+    log(`Connectingg to ${localClientUrl}`);
 
     websocketConnection = await connectWebsocket(localClientUrl).then(function (c) {
         return c;
     }).catch(function (err) {
-        log("Websocket connection error. Is the client running on port `" + port + "`?");
+        log(`Websocket connection error. Is the Nym websocket client running at ${localClientUrl}?`);
     });
 
     if (websocketConnection == null) {
@@ -73,7 +71,9 @@ function handleResponse(response: any, isBinary: boolean) {
             log("Server responded with error: " + r.message);
         } else if (r.type == "selfAddress") {
             ourAddress = r.address;
-            log(`Our local client's address is: ${ourAddress}.`);
+            log(`The exit node's address is: `); 
+            log(ourAddress);
+            log(`You should specify this address as the target address when running the client.`);
         } else if (r.type == "received") {
             // Send request to the RPC server
             // replyBack(r);
