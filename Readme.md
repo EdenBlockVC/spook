@@ -138,7 +138,7 @@ It has sensible default values, but you need to either run a local Ethereum node
 Once it starts it displays the address the `client` should send the requests to.
 
 ```text
-The exit node's address is: 
+The exit node's address is:
 CYR3uUj9vDkRvCVqZotFZwCqdhef4KP8Dk74LBVeXG7A.CZuVqwNKqjjj6yzFFmhkMm5joh1REzs6eiEfqkjT2Vtw@7Zh1Sz5dXpA6s53CbtcdqhQhLqwf4cLynL7KqHKcjrG4
 You should specify this address as the target address when running the client.
 ```
@@ -208,4 +208,4 @@ ETH_RPC_URL=http://localhost:8545 cast block-number
 
 This request will be relayed to the Nym network and forwarded to the Ethereum node running on the `provider` machine. Once the response is received it will be relayed back to the `client` and displayed.
 
-
+Also works very well with Metamask.
