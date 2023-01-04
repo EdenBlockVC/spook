@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import express from 'express';
 
-interface Response { 
+interface Response {
     type: string;
     message: string;
     address: string;
@@ -51,7 +51,7 @@ class NymClient {
             log(err);
             log(response);
         }
-    }    
+    }
 
     async start() {
         log(`Connectingg to ${this.websocketURL}`);
@@ -78,7 +78,7 @@ class NymClient {
 
     async connectWebsocket(url: string) {
         log(`Trying to connect to ${url}`)
-    
+
         return new Promise(function (resolve, reject) {
             let server: WebSocket;
             try {
@@ -88,7 +88,7 @@ class NymClient {
                 log(err);
                 reject();
             }
-    
+
             server.on('open', function open() {
                 log('Connected');
                 resolve(server);
@@ -100,10 +100,10 @@ class NymClient {
         const selfAddressRequest = {
             type: "selfAddress"
         }
-    
+
         this.websocketConnection.send(JSON.stringify(selfAddressRequest));
     }
-    
+
     relayRequest(request, response): void {
         this.requestId += 1;
 
@@ -130,18 +130,18 @@ class NymClient {
     replyBack(response: Response): void {
         log('Replying back');
         log(response);
-    
+
         const rpcResponseMessage = JSON.parse(response.message);
         const rpcResponse = rpcResponseMessage.rpcResponse;
         const rpcRequestId = rpcResponseMessage.requestId;
-    
+
         const initialRequest = this.requestsToResolve[rpcRequestId];
         initialRequest.json(rpcResponse);
     }
 }
 
 
-class RPCListener { 
+class RPCListener {
     // RPC server
     rpcServer: express.Application;
 
@@ -151,12 +151,12 @@ class RPCListener {
     // Nym client
     nymWebsocketClient: NymClient;
 
-    constructor(listenPort: string, nymWebsocketClient: NymClient) { 
+    constructor(listenPort: string, nymWebsocketClient: NymClient) {
         this.port = listenPort;
         this.nymWebsocketClient = nymWebsocketClient;
     }
 
-    start = () => { 
+    start = () => {
         log('Starting RPC server');
 
         this.rpcServer = express();
