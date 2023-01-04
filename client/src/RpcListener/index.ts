@@ -18,7 +18,7 @@ class RpcListener {
     }
 
     start = () => {
-        log('Starting RPC server');
+        log('Starting RPC listener');
 
         this.rpcServer = express();
         this.rpcServer.use(express.json());

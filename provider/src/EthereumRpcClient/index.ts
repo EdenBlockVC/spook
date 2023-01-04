@@ -18,7 +18,7 @@ class EthereumRpcClient {
     }
 
     sendAndCallback(response: Response, nymWebsocketConnection: WebSocket) {
-        log(`Sending RPC request to the RPC server:`);
+        log(`Sending request to the Ethereum RPC provider:`);
         log(response);
 
         const rpcRequestContainer = JSON.parse(response.message);
@@ -38,7 +38,6 @@ class EthereumRpcClient {
                 log('RPC response:');
                 log(response.data);
 
-                // TODO: Send response back to the client
                 const rpcResponse = response.data;
                 const rpcResponseId = rpcResponse.id;
                 const initialRequest = this.requestsToResolve[rpcResponseId];
@@ -52,7 +51,7 @@ class EthereumRpcClient {
                     recipient: initialRequest.replyTo,
                 };
 
-                log('Reply back message:');
+                log('Repling back message:');
                 log(replyBackMessage);
 
                 nymWebsocketConnection.send(JSON.stringify(replyBackMessage));
@@ -60,10 +59,8 @@ class EthereumRpcClient {
             .catch((error) => {
                 log('RPC error:');
                 log(error);
-                // TOOD: Send error back to the client
             })
             .finally(() => {
-                log('RPC done');
             });
     }
 }

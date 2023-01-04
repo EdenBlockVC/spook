@@ -74,8 +74,6 @@ class NymClient {
     }
 
     async connectWebsocket(url: string) {
-        log(`Trying to connect to ${url}`);
-
         return new Promise((resolve, reject) => {
             let server: WebSocket;
             try {
