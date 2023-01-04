@@ -1,6 +1,6 @@
-# Ethereum RPC request mixer
+# Spook
 
-This proof of concept uses the Nym network to anonymize Ethereum RPC requests.
+This Ethereum RPC request mixer is a proof of concept that uses the Nym network to anonymize RPC requests.
 
 It can be used as:
 
