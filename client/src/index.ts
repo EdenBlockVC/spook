@@ -1,148 +1,167 @@
 import WebSocket from 'ws';
 import express from 'express';
 
-// Websocket connection to the Nym client
-var websocketConnection: any;
-
-// Local Nym client address
-var ourAddress: string;
-
-// RPC server
-var rpcServer: any;
-
 // Nym exit node address
 var targetAddress: string = process.env.EXIT_NODE_ADDRESS;
 
-// Main function
-async function startNymWebsocketConnection() {
-    var localClientUrl = process.env.NYM_HOST_URL || 'ws://localhost:3000';
+class NymClient {
+    // Websocket connection to the Nym client
+    websocketConnection: any;
 
-    log(`Connectingg to ${localClientUrl}`);
+    // Local Nym Websocket URL
+    websocketURL: string
 
-    websocketConnection = await connectWebsocket(localClientUrl).then(function (c) {
-        return c;
-    }).catch(function (err) {
-        log(`Websocket connection error. Is the Nym websocket client running at ${localClientUrl}?`);
-    });
+    // Local Nym client address
+    ourAddress: string;
 
-    if (websocketConnection == null) {
-        log('Could not initialize websocket connection. Exiting.');
-        return;
+    // Request list ID
+    requestId: number = 0;
+
+    // Request list
+    requestsToResolve: any = {};
+
+    // Nym exit node address
+    exitNodeAddress: string;
+
+    constructor(WebsocketUrl: string, exitNodeAddress: string) {
+        this.websocketURL = WebsocketUrl;
+        this.exitNodeAddress = exitNodeAddress;
     }
 
-    websocketConnection.on('message', function (data, isBinary: boolean) {
-        handleResponse(JSON.parse(data.toString()), isBinary);
-    })
-
-    // Get the client's address
-    sendSelfAddressRequest();
-
-    return 'OK';
-}
-
-// Connects to the Nym websocket client
-function connectWebsocket(url: string) {
-    log(`Trying to connect to ${url}`)
-
-    return new Promise(function (resolve, _) {
-        var server: any;
+    handleResponse(response: any, isBinary: boolean): void {
         try {
-            server = new WebSocket(url);
+            let r = response;
+            if (r.type == "error") {
+                log("Server responded with error: " + r.message);
+            } else if (r.type == "selfAddress") {
+                this.ourAddress = r.address;
+                log(`Our local client's address is: ${this.ourAddress}.`);
+            } else if (r.type == "received") {
+                // Reply back to the RPC server
+                this.replyBack(r);
+            }
         } catch (err) {
-            log("Error connecting, error:");
+            log('Error handling response');
             log(err);
+            log(response);
+        }
+    }    
+
+    async start() {
+        log(`Connectingg to ${this.websocketURL}`);
+
+        this.websocketConnection = await this.connectWebsocket(this.websocketURL).then(function (c) {
+            return c;
+        }).catch(function (err) {
+            log(`Websocket connection error. Is the Nym websocket client running at ${this.websocketURL}?`);
+        });
+
+        if (this.websocketConnection == null) {
+            log('Could not initialize websocket connection. Exiting.');
+            return;
         }
 
-        server.on('open', function open() {
-            log('Connected');
-            resolve(server);
+        this.websocketConnection.on('message', (data, isBinary: boolean) => {
+            this.handleResponse(JSON.parse(data.toString()), isBinary);
         })
-    });
-}
 
-function handleResponse(response: any, isBinary: boolean) {
-    log('======RESPONSE======');
-    log(response);
-    log(isBinary ? 'binary' : 'text');
-    log('======RESPONSE======');
+        // Get the client's address
+        this.sendSelfAddressRequest();
+    }
 
-    try {
-        let r = response;
-        if (r.type == "error") {
-            log("Server responded with error: " + r.message);
-        } else if (r.type == "selfAddress") {
-            ourAddress = r.address;
-            log(`Our local client's address is: ${ourAddress}.`);
-        } else if (r.type == "received") {
-            // Reply back to the RPC server
-            replyBack(r);
+    async connectWebsocket(url: string) {
+        log(`Trying to connect to ${url}`)
+    
+        return new Promise(function (resolve, _) {
+            var server: any;
+            try {
+                server = new WebSocket(url);
+            } catch (err) {
+                log("Error connecting, error:");
+                log(err);
+            }
+    
+            server.on('open', function open() {
+                log('Connected');
+                resolve(server);
+            })
+        });
+    }
+
+    sendSelfAddressRequest(): void {
+        var selfAddressRequest = {
+            type: "selfAddress"
         }
-    } catch (err) {
-        log('Error handling response');
-        log(err);
+    
+        this.websocketConnection.send(JSON.stringify(selfAddressRequest));
+    }
+    
+    relayRequest(request, response): void {
+        this.requestId += 1;
+
+        const containerMessage = {
+            rpcRequest: request.body,
+            replyTo: this.ourAddress,
+            requestId: this.requestId,
+        }
+
+        const message = {
+            type: "send",
+            message: JSON.stringify(containerMessage),
+            recipient: targetAddress,
+            withReplySurb: false,
+        }
+
+        // Save request to resolve when response is received
+        this.requestsToResolve[this.requestId] = response;
+
+        // Send message to Nym client
+        this.websocketConnection.send(JSON.stringify(message));
+    }
+
+    replyBack(response: any): void {
+        log('Replying back');
         log(response);
+    
+        var rpcResponseMessage = JSON.parse(response.message);
+        var rpcResponse = rpcResponseMessage.rpcResponse;
+        var rpcRequestId = rpcResponseMessage.requestId;
+    
+        var initialRequest = this.requestsToResolve[rpcRequestId];
+        initialRequest.json(rpcResponse);
     }
 }
 
-function sendSelfAddressRequest() {
-    var selfAddressRequest = {
-        type: "selfAddress"
+
+class RPCListener { 
+    // RPC server
+    rpcServer: any;
+
+    // Listen port
+    port: number;
+
+    // Nym client
+    nymWebsocketClient: NymClient;
+
+    constructor(listenPort: any, nymWebsocketClient: NymClient) { 
+        this.port = listenPort;
+        this.nymWebsocketClient = nymWebsocketClient;
     }
 
-    websocketConnection.send(JSON.stringify(selfAddressRequest));
-}
+    start = () => { 
+        log('Starting RPC server');
 
-async function startRPCServer() {
-    log('Starting RPC server');
+        this.rpcServer = express();
+        this.rpcServer.use(express.json());
 
-    rpcServer = express();
-    rpcServer.use(express.json());
+        // Relay post requests to the Nym client
+        this.rpcServer.post('/', (request, response) => {
+            this.nymWebsocketClient.relayRequest(request, response);
+        })
 
-    rpcServer.post('/', (request, response) => {
-        makeRequest(request, response);
-    })
-
-    rpcServer.listen(process.env.ETH_RPC_PORT || 8545);
-}
-
-var requestId: number = 0;
-var requestsToResolve: any = {};
-
-async function makeRequest(request, response) {
-    requestId += 1;
-
-    const containerMessage = {
-        rpcRequest: request.body,
-        replyTo: ourAddress,
-        requestId: requestId,
+        // Start listening
+        this.rpcServer.listen(this.port);
     }
-
-    const message = {
-        type: "send",
-        message: JSON.stringify(containerMessage),
-        recipient: targetAddress,
-        withReplySurb: false,
-    }
-
-    log(message);
-
-    // Save request to resolve when response is received
-    requestsToResolve[requestId] = response;
-
-    // Send message to Nym client
-    websocketConnection.send(JSON.stringify(message));
-}
-
-function replyBack(response: any) {
-    log('Replying back');
-    log(response);
-
-    var rpcResponseMessage = JSON.parse(response.message);
-    var rpcResponse = rpcResponseMessage.rpcResponse;
-    var rpcRequestId = rpcResponseMessage.requestId;
-
-    var initialRequest = requestsToResolve[rpcRequestId];
-    initialRequest.json(rpcResponse);
 }
 
 // Log message
@@ -150,8 +169,12 @@ function log(message: any) {
     console.log(message);
 }
 
+
 // Start connection with Nym Websocket client
-startNymWebsocketConnection();
+var exitNodeAddress = process.env.EXIT_NODE_ADDRESS;
+var nymClient = new NymClient(process.env.NYM_HOST_URL || 'ws://localhost:3000', exitNodeAddress);
+nymClient.start();
 
 // Start port to wait for RPC requests
-startRPCServer();
+var rpcListener = new RPCListener(process.env.ETH_RPC_PORT || 8545, nymClient);
+rpcListener.start();
