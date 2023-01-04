@@ -1,12 +1,15 @@
 import WebSocket from 'ws';
 import express from 'express';
 
-// Nym exit node address
-var targetAddress: string = process.env.EXIT_NODE_ADDRESS;
+interface Response { 
+    type: string;
+    message: string;
+    address: string;
+}
 
 class NymClient {
     // Websocket connection to the Nym client
-    websocketConnection: any;
+    websocketConnection: WebSocket;
 
     // Local Nym Websocket URL
     websocketURL: string
@@ -15,10 +18,10 @@ class NymClient {
     ourAddress: string;
 
     // Request list ID
-    requestId: number = 0;
+    requestId = 0;
 
     // Request list
-    requestsToResolve: any = {};
+    requestsToResolve: object = {};
 
     // Nym exit node address
     exitNodeAddress: string;
@@ -28,17 +31,20 @@ class NymClient {
         this.exitNodeAddress = exitNodeAddress;
     }
 
-    handleResponse(response: any, isBinary: boolean): void {
+    handleResponse(response: Response, isBinary: boolean): void {
+        if (isBinary) {
+            log('Received binary message');
+        }
+
         try {
-            let r = response;
-            if (r.type == "error") {
-                log("Server responded with error: " + r.message);
-            } else if (r.type == "selfAddress") {
-                this.ourAddress = r.address;
+            if (response.type == "error") {
+                log("Server responded with error: " + response.message);
+            } else if (response.type == "selfAddress") {
+                this.ourAddress = response.address;
                 log(`Our local client's address is: ${this.ourAddress}.`);
-            } else if (r.type == "received") {
+            } else if (response.type == "received") {
                 // Reply back to the RPC server
-                this.replyBack(r);
+                this.replyBack(response);
             }
         } catch (err) {
             log('Error handling response');
@@ -54,6 +60,7 @@ class NymClient {
             return c;
         }).catch(function (err) {
             log(`Websocket connection error. Is the Nym websocket client running at ${this.websocketURL}?`);
+            log(err);
         });
 
         if (this.websocketConnection == null) {
@@ -72,13 +79,14 @@ class NymClient {
     async connectWebsocket(url: string) {
         log(`Trying to connect to ${url}`)
     
-        return new Promise(function (resolve, _) {
-            var server: any;
+        return new Promise(function (resolve, reject) {
+            let server: WebSocket;
             try {
                 server = new WebSocket(url);
             } catch (err) {
                 log("Error connecting, error:");
                 log(err);
+                reject();
             }
     
             server.on('open', function open() {
@@ -89,7 +97,7 @@ class NymClient {
     }
 
     sendSelfAddressRequest(): void {
-        var selfAddressRequest = {
+        const selfAddressRequest = {
             type: "selfAddress"
         }
     
@@ -108,7 +116,7 @@ class NymClient {
         const message = {
             type: "send",
             message: JSON.stringify(containerMessage),
-            recipient: targetAddress,
+            recipient: this.exitNodeAddress,
             withReplySurb: false,
         }
 
@@ -119,15 +127,15 @@ class NymClient {
         this.websocketConnection.send(JSON.stringify(message));
     }
 
-    replyBack(response: any): void {
+    replyBack(response: Response): void {
         log('Replying back');
         log(response);
     
-        var rpcResponseMessage = JSON.parse(response.message);
-        var rpcResponse = rpcResponseMessage.rpcResponse;
-        var rpcRequestId = rpcResponseMessage.requestId;
+        const rpcResponseMessage = JSON.parse(response.message);
+        const rpcResponse = rpcResponseMessage.rpcResponse;
+        const rpcRequestId = rpcResponseMessage.requestId;
     
-        var initialRequest = this.requestsToResolve[rpcRequestId];
+        const initialRequest = this.requestsToResolve[rpcRequestId];
         initialRequest.json(rpcResponse);
     }
 }
@@ -135,15 +143,15 @@ class NymClient {
 
 class RPCListener { 
     // RPC server
-    rpcServer: any;
+    rpcServer: express.Application;
 
     // Listen port
-    port: number;
+    port: string;
 
     // Nym client
     nymWebsocketClient: NymClient;
 
-    constructor(listenPort: any, nymWebsocketClient: NymClient) { 
+    constructor(listenPort: string, nymWebsocketClient: NymClient) { 
         this.port = listenPort;
         this.nymWebsocketClient = nymWebsocketClient;
     }
@@ -165,16 +173,16 @@ class RPCListener {
 }
 
 // Log message
-function log(message: any) {
+function log(message) {
     console.log(message);
 }
 
 
 // Start connection with Nym Websocket client
-var exitNodeAddress = process.env.EXIT_NODE_ADDRESS;
-var nymClient = new NymClient(process.env.NYM_HOST_URL || 'ws://localhost:3000', exitNodeAddress);
+const exitNodeAddress = process.env.EXIT_NODE_ADDRESS;
+const nymClient = new NymClient(process.env.NYM_HOST_URL || 'ws://localhost:3000', exitNodeAddress);
 nymClient.start();
 
 // Start port to wait for RPC requests
-var rpcListener = new RPCListener(process.env.ETH_RPC_PORT || 8545, nymClient);
+const rpcListener = new RPCListener(process.env.ETH_RPC_PORT || '8545', nymClient);
 rpcListener.start();
