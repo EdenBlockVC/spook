@@ -1,7 +1,7 @@
 {
-  "name": "client",
+  "name": "entry",
   "version": "1.0.0",
-  "description": "Local RPC Client that relays messages to the Nym network",
+  "description": "Entry point that relays Ethereum RPC messages through the Nym network.",
   "main": "index.js",
   "author": "Daniel Luca (CleanUnicorn)",
   "license": "Apache-2.0",

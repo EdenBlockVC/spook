@@ -1,6 +1,7 @@
 {
-  "name": "provider",
+  "name": "exit",
   "version": "1.0.0",
+  "description": "Exit point that receives relayed Ethereum RPC messages through the Nym Mixnet and forwards them to the Ethereum node.",
   "main": "index.js",
   "author": "Daniel Luca (CleanUnicorn)",
   "license": "Apache-2.0",

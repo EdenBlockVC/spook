@@ -64,7 +64,7 @@ class NymClient {
                 this.ourAddress = response.address;
                 log(`The exit node's address is: `);
                 log(this.ourAddress);
-                log(`You should specify this address as the target address when running the client.`);
+                log(`You should specify this address as the target address when running the entry utility.`);
             } else if (response.type == 'received') {
                 // Send request to the RPC server
                 this.ethereumRpcClient.sendAndCallback(response, this.websocketConnection);
