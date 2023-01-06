@@ -22,8 +22,8 @@ This leverages the Nym network to mix RPC requests through their network of mix 
 
 This project consists of 2 utilities:
 
-- [`entry`](entry/) - receives the usual RPC requests and forwards them to the Nym network
-- [`exit`](exit/) - receives the requests from the Nym network and forwards them to the Ethereum node
+- [`entry`](src/entry/) - receives the usual RPC requests and forwards them to the Nym network
+- [`exit`](src/exit/) - receives the requests from the Nym network and forwards them to the Ethereum node
 
 Each of the utilities can run on different machines. If you run them on the same machine your IP is not anonymized from the Ethereum RPC provider. Between these utilities sits the Nym network, which mixes the sent packets to anonymize the requests.
 
@@ -73,17 +73,17 @@ The last lines of the output will be the `exit-node`'s address. You'll need this
 
 You can go ahead and start the Nym client after you create the config:
 
-```
+```text
 nym-client start --id exit-node
 ```
 
-Now we need to start the `exit` utility.
-
-The `exit` is located in the [`exit`](exit/) directory. You can build it with the following:
+You need to start Spook's exit module, do this by cloning the repo and building the project:
 
 ```text
-cd provider
+git clone https://github.com/EdenBlockVC/spook
+cd spook
 yarn
+yarn build
 ```
 
 Once that's done, you need to set the `ETH_RPC_URL` environment variable to the URL of the Ethereum node you want to forward the requests.
@@ -107,7 +107,7 @@ Bringing this together you can set the environment variables and start the `exit
 ```text
 export ETH_RPC_URL=https://eth.llamarpc.com
 export NYM_HOST_URL=ws://localhost:3001
-yarn start
+yarn start:exit
 ```
 
 Once it starts, it displays the address to which the `entry` should send the requests.
@@ -140,14 +140,15 @@ You can go ahead and start the Nym client after you create the config:
 nym-client start --id entry-node
 ```
 
-Now we need to start the `entry` utility.
-
-The `entry` is located in the [`entry`](entry/) directory. You can build it with the following:
+You need to start Spook's `entry` module, do this by cloning the repo and building the project:
 
 ```text
-cd entry
+git clone https://github.com/EdenBlockVC/spook
+cd spook
 yarn
+yarn build
 ```
+
 
 The `entry` utility will listen on port `8545` for Ethereum RPC requests and will relay them to the Nym network, where the `exit` will receive and process them. You need to specify the exit node address to know where to relay these requests. This is the address that the `exit` displayed when it started.
 
@@ -166,7 +167,7 @@ Bringing this together you set the exit node's address and can also specify a di
 ```text
 export EXIT_NODE_ADDRESS={YOUR_EXIT_NODE_ADDRESS}
 export NYM_HOST_URL=ws://localhost:3000
-yarn start
+yarn start:entry
 ```
 
 Once this started you should have 4 terminals running:

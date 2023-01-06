@@ -1,11 +1,9 @@
-import WebSocket from 'ws';
 import { log } from '../log';
-import { Response } from '../interfaces/Response';
-
-import { EthereumRpcClient } from '../EthereumRpcClient';
+import { Response } from '../../interfaces/Response';
+import WebSocket from 'ws';
 
 class NymClient {
-    // Websocket connection
+    // Websocket connection to the Nym client
     websocketConnection: WebSocket;
 
     // Nym Websocket URL
@@ -14,15 +12,23 @@ class NymClient {
     // Nym client address
     ourAddress: string;
 
-    // Ethereum RPC client
-    ethereumRpcClient: EthereumRpcClient;
+    // Request list ID
+    requestId = 0;
 
-    constructor(websocketUrl: string, ethereumRpcClient: EthereumRpcClient) {
+    // Request list
+    requestsToResolve: object = {};
+
+    // Nym exit node address
+    exitNodeAddress: string;
+
+    constructor(websocketUrl: string, exitNodeAddress: string) {
         this.websocketUrl = websocketUrl;
-        this.ethereumRpcClient = ethereumRpcClient;
+        this.exitNodeAddress = exitNodeAddress;
     }
 
     async start() {
+        log(`Connecting to ${this.websocketUrl}`);
+
         this.websocketConnection = await this.connectWebsocket(this.websocketUrl)
             .then((c) => {
                 return c;
@@ -34,6 +40,7 @@ class NymClient {
 
         if (this.websocketConnection == null) {
             log('Could not initialize websocket connection. Exiting.');
+            return;
         }
 
         this.websocketConnection.on('message', (data, isBinary: boolean) => {
@@ -42,14 +49,6 @@ class NymClient {
 
         // Get the Nym's client address
         this.sendSelfAddressRequest();
-    }
-
-    sendSelfAddressRequest(): void {
-        const selfAddressRequest = {
-            type: 'selfAddress',
-        };
-
-        this.websocketConnection.send(JSON.stringify(selfAddressRequest));
     }
 
     handleResponse(response: Response, isBinary: boolean): void {
@@ -62,17 +61,15 @@ class NymClient {
                 log('Server responded with error: ' + response.message);
             } else if (response.type == 'selfAddress') {
                 this.ourAddress = response.address;
-                log(`The exit node's address is: `);
-                log(this.ourAddress);
-                log(`You should specify this address as the target address when running the entry utility.`);
+                log(`Our local client's address is: ${this.ourAddress}.`);
             } else if (response.type == 'received') {
-                // Send request to the RPC server
-                this.ethereumRpcClient.sendAndCallback(response, this.websocketConnection);
+                // Reply back to the RPC server
+                this.replyBack(response);
             }
         } catch (err) {
             log('Error handling response');
             log(err);
-            log(response.toString());
+            log(response);
         }
     }
 
@@ -92,6 +89,49 @@ class NymClient {
                 resolve(server);
             });
         });
+    }
+
+    sendSelfAddressRequest(): void {
+        const selfAddressRequest = {
+            type: 'selfAddress',
+        };
+
+        this.websocketConnection.send(JSON.stringify(selfAddressRequest));
+    }
+
+    relayRequest(request, response): void {
+        this.requestId += 1;
+
+        const containerMessage = {
+            rpcRequest: request.body,
+            replyTo: this.ourAddress,
+            requestId: this.requestId,
+        };
+
+        const message = {
+            type: 'send',
+            message: JSON.stringify(containerMessage),
+            recipient: this.exitNodeAddress,
+            withReplySurb: false,
+        };
+
+        // Save request to resolve when response is received
+        this.requestsToResolve[this.requestId] = response;
+
+        // Send message to Nym client
+        this.websocketConnection.send(JSON.stringify(message));
+    }
+
+    replyBack(response: Response): void {
+        log('Replying back');
+        log(response);
+
+        const rpcResponseMessage = JSON.parse(response.message);
+        const rpcResponse = rpcResponseMessage.rpcResponse;
+        const rpcRequestId = rpcResponseMessage.requestId;
+
+        const initialRequest = this.requestsToResolve[rpcRequestId];
+        initialRequest.json(rpcResponse);
     }
 }
 

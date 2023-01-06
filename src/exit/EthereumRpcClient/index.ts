@@ -1,5 +1,5 @@
 import { log } from '../log';
-import { Response } from '../interfaces/Response';
+import { Response } from '../../interfaces/Response';
 
 import axios from 'axios';
 
@@ -59,8 +59,6 @@ class EthereumRpcClient {
             .catch((error) => {
                 log('RPC error:');
                 log(error);
-            })
-            .finally(() => {
             });
     }
 }

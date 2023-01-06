@@ -1,19 +1,21 @@
 {
-  "name": "exit",
+  "name": "spook",
   "version": "1.0.0",
-  "description": "Exit point that receives relayed Ethereum RPC messages through the Nym Mixnet and forwards them to the Ethereum node.",
+  "description": "Mixing service using the Nym network to anonymize Ethereum RPC calls",
   "main": "index.js",
   "author": "Daniel Luca (CleanUnicorn)",
   "license": "Apache-2.0",
   "dependencies": {
     "@types/node": "^18.11.18",
     "axios": "^1.2.2",
+    "express": "^4.18.2",
     "typescript": "^4.9.4",
     "ws": "^8.11.0"
   },
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && node dist/index.js",
+    "start:entry": "npm run build && node dist/entry/index.js",
+    "start:exit": "npm run build && node dist/exit/index.js",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write"
