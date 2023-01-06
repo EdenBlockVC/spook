@@ -31,7 +31,7 @@ The Ethereum node will see the IP of the machine running the `exit` utility. The
 
 The user can use a public `entry` utility, but running your own is the only way to be sure that your requests are not logged.
 
-![Diagram](static/Nym%20Ethereum%20RPC%20Mixer.drawio.png)
+![Diagram](https://github.com/EdenBlockVC/spook/blob/master/static/Nym%20Ethereum%20RPC%20Mixer.drawio.png?raw=true)
 
 The orange boxes were already created by Nym; this repository provides the blue boxes: the `entry` and the `exit`.
 
@@ -49,7 +49,7 @@ Additionally, you need an RPC provider or an Ethereum node to forward the reques
 
 A simplified example of how this can be set up is:
 
-![Simplified Diagram](static/Simplified%20Diagram.png)
+![Simplified Diagram](https://github.com/EdenBlockVC/spook/blob/master/static/Simplified%20Diagram.png?raw=true)
 
 ### Install the Nym WebSocket client
 
@@ -199,6 +199,6 @@ Also works seamlessly with Metamask.
 
 Once you set everything up and the entry utility is running on your local machine, just change Metamask to use the local RPC.
 
-![Metamask settings](static/metamask.png)
+![Metamask settings](https://github.com/EdenBlockVC/spook/blob/master/static/metamask.png?raw=true)
 
 You can use Metamask as you normally would, but the requests will be relayed through the Nym network.
