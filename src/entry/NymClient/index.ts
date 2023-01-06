@@ -1,4 +1,4 @@
-import { log } from '../log';
+import { log } from '../../log';
 import { Response } from '../../interfaces/Response';
 import WebSocket from 'ws';
 

@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { log } from '../log';
+import { log } from '../../log';
 import { Response } from '../../interfaces/Response';
 
 import { EthereumRpcClient } from '../EthereumRpcClient';

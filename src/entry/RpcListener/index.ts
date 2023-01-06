@@ -1,6 +1,6 @@
 import express from 'express';
 import { NymClient } from '../NymClient';
-import { log } from '../log';
+import { log } from '../../log';
 
 class RpcListener {
     // RPC server
