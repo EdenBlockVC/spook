@@ -39,6 +39,8 @@ The `entry` receives requests from the user and relays the requests through the 
 
 ## Running the app
 
+### Manual setup
+
 For the full system to work, you will run 4 programs:
 
 - 2 Nym clients (one for the `entry` and one for the `exit`)
@@ -51,11 +53,11 @@ A simplified example of how this can be set up is:
 
 ![Simplified Diagram](https://github.com/EdenBlockVC/spook/blob/master/static/Simplified%20Diagram.png?raw=true)
 
-### Install the Nym WebSocket client
+#### Install the Nym WebSocket client
 
 You can install the [Nym WebSocket client](https://nymtech.net/docs/stable/integrations/websocket-client) by downloading the binary from the [releases page](https://github.com/nymtech/nym/releases) or by [building it from source](https://nymtech.net/docs/stable/run-nym-nodes/build-nym).
 
-### Set up the `exit` node
+#### Set up the `exit` node
 
 This is the exit node of the pipeline. This is the machine that will receive the requests from the Nym network and forward them to the Ethereum node.
 
@@ -120,7 +122,7 @@ You should specify this address as the target address when running the entry uti
 
 Your exit utility is ready to make requests to the Ethereum RPC provider.
 
-### Set up the `entry` node
+#### Set up the `entry` node
 
 This is the entry node of the pipeline. This is the machine that will receive the requests from the user and forward them to the Nym network.
 
@@ -176,6 +178,32 @@ Once this started you should have 4 terminals running:
 - 1 `exit` utility
 - 1 Nym WebSocket client on the `entry` node
 - 1 `entry` utility
+
+### Docker
+
+You can try using an already set up exit node and only build the local node.
+
+To do that find out the address of the exit node from the provider.
+
+Create a copy of the `env-entry.sample` file and name it `env-entry`.
+
+```text 
+cp env-entry.sample env-entry
+```
+
+Then edit the `env-entry` file and set the `EXIT_NODE_ADDRESS` to the address of the exit node.
+
+Then build the docker image with the following command:
+
+```text
+docker build -t spook-entry .
+```
+
+Once you built the image and set up the `env-entry` file, you can run the docker image with the following command:
+
+```text
+docker run --env-file env-entry -p 8545:8545 -d spook 
+```
 
 ## Usage
 
