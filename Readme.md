@@ -76,7 +76,7 @@ The last lines of the output will be the `exit-node`'s address. You'll need this
 You can go ahead and start the Nym client after you create the config:
 
 ```text
-nym-client start --id exit-node
+nym-client run --id exit-node
 ```
 
 You need to start Spook's exit module, do this by cloning the repo and building the project:
@@ -139,7 +139,7 @@ This will create a new configuration that makes the WebSocket client listen on p
 You can go ahead and start the Nym client after you create the config:
 
 ```text
-nym-client start --id entry-node
+nym-client run --id entry-node
 ```
 
 You need to start Spook's `entry` module, do this by cloning the repo and building the project:
