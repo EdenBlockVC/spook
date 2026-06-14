@@ -1,22 +1,23 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "target": "es2022",
+        "lib": ["es2022"],
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
-        "target": "es6",
-        "noImplicitAny": false,
-        "moduleResolution": "node",
-        "sourceMap": false,
+        "strict": true,
+        "noImplicitAny": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "declaration": false,
         "outDir": "dist",
-        "baseUrl": ".",
-        "paths": {
-            "*": [
-                "node_modules/*",
-                "src/types/*"
-            ]
-        }
+        "rootDir": "src"
     },
-    "include": [
-        "src/**/*"
-    ]
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

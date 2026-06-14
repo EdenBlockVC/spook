@@ -1,1 +1,8 @@
+# Address of the exit node, printed by the exit utility when it starts.
 EXIT_NODE_ADDRESS={ADD-EXIT-NODE-ADDRESS-HERE}
+
+# Nym websocket client the entry connects to (optional, defaults to ws://localhost:3000).
+# NYM_HOST_URL=ws://localhost:3000
+
+# Port the entry listens on for incoming RPC requests (optional, defaults to 8545).
+# ETH_RPC_PORT=8545

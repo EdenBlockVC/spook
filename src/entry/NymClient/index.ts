@@ -1,137 +1,164 @@
-import { log } from '../../log';
-import { Response } from '../../interfaces/Response';
 import WebSocket from 'ws';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import { log } from '../../log';
+import { JsonRpcId, NymResponse, RelayedResponse } from '../../interfaces';
+import { createRelayedRequest, createSendMessage, jsonRpcError, SELF_ADDRESS_REQUEST } from '../../protocol';
+
+// How long to wait before reconnecting a dropped websocket.
+const RECONNECT_DELAY_MS = 5_000;
+
+// How long to wait for a relayed response before failing the request.
+const REQUEST_TIMEOUT_MS = 30_000;
+
+interface PendingRequest {
+    httpResponse: ExpressResponse;
+    originalId: JsonRpcId;
+    timer: NodeJS.Timeout;
+}
 
 class NymClient {
-    // Websocket connection to the Nym client
-    websocketConnection: WebSocket;
-
-    // Nym Websocket URL
-    websocketUrl: string;
-
-    // Nym client address
-    ourAddress: string;
-
-    // Request list ID
-    requestId = 0;
-
-    // Request list
-    requestsToResolve: object = {};
-
-    // Nym exit node address
-    exitNodeAddress: string;
+    private websocketConnection?: WebSocket;
+    private readonly websocketUrl: string;
+    private readonly exitNodeAddress: string;
+    private ourAddress?: string;
+    private requestId = 0;
+    private readonly pendingRequests = new Map<number, PendingRequest>();
+    private reconnectTimer?: NodeJS.Timeout;
 
     constructor(websocketUrl: string, exitNodeAddress: string) {
         this.websocketUrl = websocketUrl;
         this.exitNodeAddress = exitNodeAddress;
     }
 
-    async start() {
+    start(): void {
+        this.connect();
+    }
+
+    private connect(): void {
         log(`Connecting to ${this.websocketUrl}`);
 
-        this.websocketConnection = await this.connectWebsocket(this.websocketUrl)
-            .then((c) => {
-                return c;
-            })
-            .catch((err) => {
-                log(`Websocket connection error. Is the Nym websocket client running at ${this.websocketUrl}?`);
-                log(err);
-            });
+        const ws = new WebSocket(this.websocketUrl);
+        this.websocketConnection = ws;
 
-        if (this.websocketConnection == null) {
-            log('Could not initialize websocket connection. Exiting.');
+        ws.on('open', () => {
+            log('Connected to the Nym websocket client');
+            this.sendSelfAddressRequest();
+        });
+
+        ws.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
+            if (isBinary) {
+                log('Ignoring unexpected binary message');
+                return;
+            }
+            this.onMessage(data.toString());
+        });
+
+        ws.on('error', (err: Error) => {
+            log(`Websocket error: ${err.message}. Is the Nym websocket client running at ${this.websocketUrl}?`);
+        });
+
+        ws.on('close', () => {
+            this.ourAddress = undefined;
+            log('Websocket connection closed. Attempting to reconnect...');
+            this.scheduleReconnect();
+        });
+    }
+
+    private scheduleReconnect(): void {
+        if (this.reconnectTimer) {
+            return;
+        }
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = undefined;
+            this.connect();
+        }, RECONNECT_DELAY_MS);
+    }
+
+    private onMessage(data: string): void {
+        let response: NymResponse;
+        try {
+            response = JSON.parse(data);
+        } catch {
+            log('Received a non-JSON message from the Nym client');
+            return;
+        }
+        this.handleResponse(response);
+    }
+
+    private handleResponse(response: NymResponse): void {
+        switch (response.type) {
+            case 'error':
+                log(`Nym client responded with error: ${response.message}`);
+                break;
+            case 'selfAddress':
+                this.ourAddress = response.address;
+                log(`Our local client's address is: ${this.ourAddress}`);
+                break;
+            case 'received':
+                this.replyBack(response.message);
+                break;
+            default:
+                log('Received an unknown message type from the Nym client');
+        }
+    }
+
+    private sendSelfAddressRequest(): void {
+        this.websocketConnection?.send(JSON.stringify(SELF_ADDRESS_REQUEST));
+    }
+
+    relayRequest(request: ExpressRequest, httpResponse: ExpressResponse): void {
+        const rpcRequest = request.body;
+        const originalId: JsonRpcId = rpcRequest?.id ?? null;
+
+        if (!this.websocketConnection || this.websocketConnection.readyState !== WebSocket.OPEN || !this.ourAddress) {
+            httpResponse
+                .status(503)
+                .json(jsonRpcError(originalId, -32000, 'Nym connection is not ready, please retry shortly'));
             return;
         }
 
-        this.websocketConnection.on('message', (data, isBinary: boolean) => {
-            this.handleResponse(JSON.parse(data.toString()), isBinary);
-        });
-
-        // Get the Nym's client address
-        this.sendSelfAddressRequest();
-    }
-
-    handleResponse(response: Response, isBinary: boolean): void {
-        if (isBinary) {
-            log('Received binary message');
-        }
-
-        try {
-            if (response.type == 'error') {
-                log('Server responded with error: ' + response.message);
-            } else if (response.type == 'selfAddress') {
-                this.ourAddress = response.address;
-                log(`Our local client's address is: ${this.ourAddress}.`);
-            } else if (response.type == 'received') {
-                // Reply back to the RPC server
-                this.replyBack(response);
-            }
-        } catch (err) {
-            log('Error handling response');
-            log(err);
-            log(response);
-        }
-    }
-
-    async connectWebsocket(url: string) {
-        return new Promise((resolve, reject) => {
-            let server: WebSocket;
-            try {
-                server = new WebSocket(url);
-            } catch (err) {
-                log('Error connecting, error:');
-                log(err);
-                reject();
-            }
-
-            server.on('open', () => {
-                log('Connected');
-                resolve(server);
-            });
-        });
-    }
-
-    sendSelfAddressRequest(): void {
-        const selfAddressRequest = {
-            type: 'selfAddress',
-        };
-
-        this.websocketConnection.send(JSON.stringify(selfAddressRequest));
-    }
-
-    relayRequest(request, response): void {
         this.requestId += 1;
+        const requestId = this.requestId;
 
-        const containerMessage = {
-            rpcRequest: request.body,
-            replyTo: this.ourAddress,
-            requestId: this.requestId,
-        };
+        const container = createRelayedRequest(rpcRequest, this.ourAddress, requestId);
+        const message = createSendMessage(container, this.exitNodeAddress);
 
-        const message = {
-            type: 'send',
-            message: JSON.stringify(containerMessage),
-            recipient: this.exitNodeAddress,
-            withReplySurb: false,
-        };
+        const timer = setTimeout(() => {
+            if (this.pendingRequests.delete(requestId)) {
+                log(`Request ${requestId} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+                httpResponse
+                    .status(504)
+                    .json(jsonRpcError(originalId, -32000, 'Timed out waiting for a response from the exit node'));
+            }
+        }, REQUEST_TIMEOUT_MS);
 
-        // Save request to resolve when response is received
-        this.requestsToResolve[this.requestId] = response;
-
-        // Send message to Nym client
+        this.pendingRequests.set(requestId, { httpResponse, originalId, timer });
         this.websocketConnection.send(JSON.stringify(message));
     }
 
-    replyBack(response: Response): void {
-        log('Replying back');
-        log(response);
+    private replyBack(rawMessage: string): void {
+        let payload: RelayedResponse;
+        try {
+            payload = JSON.parse(rawMessage);
+        } catch {
+            log('Could not parse relayed response from the exit node');
+            return;
+        }
 
-        const rpcResponseMessage = JSON.parse(response.message);
-        const rpcResponse = rpcResponseMessage.rpcResponse;
-        const rpcRequestId = rpcResponseMessage.requestId;
+        const pending = this.pendingRequests.get(payload.requestId);
+        if (!pending) {
+            log(`No pending request found for relayed response ${payload.requestId}`);
+            return;
+        }
 
-        const initialRequest = this.requestsToResolve[rpcRequestId];
-        initialRequest.json(rpcResponse);
+        clearTimeout(pending.timer);
+        this.pendingRequests.delete(payload.requestId);
+
+        const rpcResponse = payload.rpcResponse;
+        // Restore the caller's original JSON-RPC id so wallets can correlate
+        // the response with their request.
+        rpcResponse.id = pending.originalId;
+        pending.httpResponse.json(rpcResponse);
     }
 }
 

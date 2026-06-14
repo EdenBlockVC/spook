@@ -2,28 +2,42 @@
   "name": "spook",
   "version": "1.0.0",
   "description": "Mixing service using the Nym network to anonymize Ethereum RPC calls",
-  "main": "index.js",
+  "main": "dist/entry/index.js",
   "author": "Daniel Luca (CleanUnicorn)",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "@types/node": "^18.11.18",
-    "axios": "^1.2.2",
-    "express": "^4.18.2",
-    "typescript": "^4.9.4",
-    "ws": "^8.11.0"
+    "axios": "^1.17.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "ws": "^8.21.0"
   },
   "scripts": {
     "build": "tsc",
-    "start:entry": "npm run build && node dist/entry/index.js",
-    "start:exit": "npm run build && node dist/exit/index.js",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
-    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write"
+    "start:entry": "node dist/entry/index.js",
+    "start:exit": "node dist/exit/index.js",
+    "dev:entry": "node --import tsx --watch src/entry/index.ts",
+    "dev:exit": "node --import tsx --watch src/exit/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.48.0",
-    "@typescript-eslint/parser": "^5.48.0",
-    "eslint": "^8.31.0",
-    "prettier": "^2.8.1"
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
+    "eslint": "^10.5.0",
+    "prettier": "^3.8.4",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^4.1.8"
   }
 }
