@@ -202,8 +202,10 @@ docker build -t spook-entry .
 Once you built the image and set up the `env-entry` file, you can run the docker image with the following command:
 
 ```text
-docker run --env-file env-entry -p 8545:8545 -d spook 
+docker run --env-file env-entry -p 8545:8545 -d spook-entry
 ```
+
+The image downloads a pinned, prebuilt `nym-client` binary from the [Nym releases](https://github.com/nymtech/nym/releases), so no Rust toolchain or source build is required. You can override the pinned version at build time with `--build-arg NYM_VERSION=<release-tag>`.
 
 ## Usage
 

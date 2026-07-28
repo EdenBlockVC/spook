@@ -1,0 +1,5 @@
+# Ethereum RPC provider the exit forwards requests to.
+ETH_RPC_URL=https://eth.llamarpc.com
+
+# Nym websocket client the exit connects to (optional, defaults to ws://localhost:3001).
+# NYM_HOST_URL=ws://localhost:3001

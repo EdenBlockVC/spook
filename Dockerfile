@@ -1,28 +1,46 @@
-FROM node:16
+# syntax=docker/dockerfile:1
 
-# Nym version
-ARG NYM_VERSION=develop
+# ---- Build stage: compile the TypeScript sources ----
+FROM node:22-bookworm-slim AS builder
 
-# Install Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Setup Nym
-WORKDIR /usr/src/
-RUN git clone -b ${NYM_VERSION} https://github.com/nymtech/nym.git --depth 1
-WORKDIR /usr/src/nym
-RUN cargo build --release
-ENV PATH="/usr/src/nym/target/release:${PATH}"
-
-# Setup app
 WORKDIR /usr/src/app
+
+# Install dependencies first to leverage Docker layer caching.
 COPY package.json yarn.lock ./
-RUN yarn install --production --frozen-lockfile
-COPY . .
+RUN yarn install --frozen-lockfile
+
+# Build the project.
+COPY tsconfig.json ./
+COPY src ./src
 RUN yarn build
 
-# Copy startup script
-WORKDIR /usr/src/app
-COPY ./docker/entry.sh .
+# ---- Runtime stage ----
+FROM node:22-bookworm-slim
 
-CMD [ "./entry.sh" ]
+# Pinned Nym release. The prebuilt nym-client binary is downloaded directly
+# from the release assets, so there is no need to compile Nym from source.
+ARG NYM_VERSION=nym-binaries-v2026.11-xynomizithra
+
+# Download the prebuilt nym-client binary.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && curl -fsSL -o /usr/local/bin/nym-client \
+        "https://github.com/nymtech/nym/releases/download/${NYM_VERSION}/nym-client" \
+    && chmod +x /usr/local/bin/nym-client \
+    && apt-get purge -y curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/app
+
+# Install only production dependencies.
+COPY package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile && yarn cache clean
+
+# Copy the compiled output and the startup script.
+COPY --from=builder /usr/src/app/dist ./dist
+COPY docker/entry.sh ./entry.sh
+
+EXPOSE 8545
+
+CMD ["./entry.sh"]

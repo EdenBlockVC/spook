@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NymClient } from './NymClient';
 import { EthereumRpcClient } from './EthereumRpcClient';
 
